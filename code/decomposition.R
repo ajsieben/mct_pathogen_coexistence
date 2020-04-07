@@ -1,6 +1,8 @@
-#### COMPLETE MODEL ####  -----------------------------------------------------------------------------
+#### COMPLETE MODEL WITH DECOMPOSITIONS ####  -----------------------------------------------------------------------------
 # library("deSolve")
 # library("ggplot2")
+
+# setwd("./code")
 
 source("model_functions.R")
 source("within_host_model.R")
@@ -15,15 +17,13 @@ runModel <- function(v) {
     parameter.list <- generateParams()
     
     ## Between-host model parameters ##
-    N <- parameter.list$N                          # The total population size will be 1000 and remain constant.
-    t <- parameter.list$t                          # The amount of time for the infection to spread.
-    sd.var <- parameter.list$sd.var
+    N <- parameter.list$N                          # The total population size.
+    t <- parameter.list$t                          # The amount of time the model is simulated.
+    sd.var <- parameter.list$sd.var                # The amount of variation introduced for the sensitivity analysis.
 
-    omega1 <- parameter.list$omega1                # Probability of transmission upon contact per pathogen 1.
-    omega2 <- parameter.list$omega2                # Probability of transmission upon contact per pathogen 2.
     kappa <- parameter.list$kappa                  # Mean number of contacts.
-    bottle <- parameter.list$bottle                # Pathogen colonization size upon infection.
-    eta <- parameter.list$eta                      # Proportion of total population that is born/dies during each time step.
+    bottle <- parameter.list$bottle                # Probability a pathogen will colonize the new host upon successful transmission..
+    eta <- parameter.list$eta                      # Probability a host will die during each time step.
 
     
     lo.n <- parameter.list$lo.n                    # Pathogen abundance defined as "low".
@@ -38,42 +38,40 @@ runModel <- function(v) {
     hi.k.p2 <- parameter.list$hi.k.p2              # Probability of transmission at high pathogen abundance for P2.
     
     ## Within-host model parameters ##
-    times <- parameter.list$times
+    times <- parameter.list$times                  # The number of within-host time steps for each between-host time step.
     
-    theta <- parameter.list$theta
-    Rmax <- parameter.list$Rmax
-    delta1 <- parameter.list$delta1
-    delta2 <- parameter.list$delta2
-    alpha1 <- parameter.list$alpha1                # Pathogen 1 rate of increase.
-    alpha2 <- parameter.list$alpha2                # Pathogen 2 rate of increase.
-    beta1 <- parameter.list$beta1                  # Rate of consumption by immune system .1
-    beta2 <- parameter.list$beta2                  # Rate of consumption by immune system 2.
+    theta <- parameter.list$theta                  # Base rate of host resource recovery.
+    Rmax <- parameter.list$Rmax                    # Maximum host resource.
+    delta1 <- parameter.list$delta1                # Resource conversion rate for P1.
+    delta2 <- parameter.list$delta2                # Resource conversion rate for P2.
+    alpha1 <- parameter.list$alpha1                # P1 rate of increase.
+    alpha2 <- parameter.list$alpha2                # P2 rate of increase.
+    beta1 <- parameter.list$beta1                  # Rate of consumption by I1.
+    beta2 <- parameter.list$beta2                  # Rate of consumption by I2.
     epsilon <- parameter.list$epsilon              # Conversion factor for immune cell growth.
     sigma1 <- parameter.list$sigma1                # Rate of immune system activation by memory cells from same serotype.
     sigma2 <- parameter.list$sigma2                # Rate of immune system activation by memory cells from same serotype.
     gamma <- parameter.list$gamma                  # Rate of immune system decay.
     rho <- parameter.list$rho                      # Rate of memory system stimulation.
-    tau <- parameter.list$tau                  # Rate of immune system activation by memory cells from different serotype (i.e. cross-immunity).
+    tau <- parameter.list$tau                      # Rate of immune system activation by memory cells from different serotype (i.e. cross-immunity).
     mu <- parameter.list$mu                        # Rate of memory system decay.
     
     ## Decomposition parameters ##
-    equil.times <- parameter.list$equil.times
-    spat.equil.times <- parameter.list$spat.equil.times
+    equil.times <- parameter.list$equil.times             # Object specifying the time range that residents are at equilibrium.
+    spat.equil.times <- parameter.list$spat.equil.times   # The number of iterations for the invader to reach spatial equilibrium. 
     
     ##########
     
     ## Setup ##
-    # Make a general matrix for individuals' status.
-    initP1.load <- 100    # Initial pathogen load for those infected with pathogen 1.
-    initP2.load <- 100    # Initial pathogen load for those infected with pathogen 2.
-    initI1.load <- 1
-    initI2.load <- 1
-    initR.load <- 100
+    # Generate a matrix to hold all host statuses for one time step.
+    initP1.load <- 100    # Initial pathogen load for those infected with P1.
+    initP2.load <- 100    # Initial pathogen load for those infected with P2.
+    initI1.load <- 1      # Initial I1 load.
+    initI2.load <- 1      # Initial I2 load.
+    initR.load <- 100     # Initial R load.
     
     status.categ <- c("P1", "P2", "I1", "I2", "M1", "M2", "R")
-    fitness.categ <- c("I1", "I2", "M1", "M2", "R")
-    density.categ <- c("P1", "P2")
-    
+
     host.status <- matrix(0, nrow = N, ncol = length(status.categ), 
                           dimnames = list(seq(N), status.categ))  
     host.status[, "I1"] <- initI1.load
@@ -86,35 +84,36 @@ runModel <- function(v) {
     # Determine host contacts for all time steps.
     host.contacts <- list(NULL)
     for (i in 1:t) {
-      contacts <- rpois(N, kappa)
-      tot.contacts <- sum(contacts)
+      num.contacts <- rpois(N, kappa)                 # Generate vector specifying how many other hosts each host contacts.
+      tot.contacts <- sum(num.contacts)
       
+      # Create matrix with first column listing contactor and second column listing contacted.
       temp.host.contacts <- matrix(data = NA, nrow = tot.contacts, ncol = 2, dimnames = list(seq(tot.contacts), 
                                                                                              c("contacter", "contacted")))
       
-      vector.contacters <- rep(seq(N), contacts)
+      vector.contacters <- rep(seq(N), num.contacts)  # Fill first column with contactors.
       list.contacted <- list(NULL)
         
       for (j in 1:N) {
         contactables <- seq(N)
-        contacted <- sample(contactables[-j], contacts[j], replace = FALSE)
+        contacted <- sample(contactables[-j], num.contacts[j], replace = FALSE)   # Draw contacted hosts without replacement (also remove contactor).
         
         if (length(contacted) != 0) {
-          list.contacted[[j]] <- contacted
+          list.contacted[[j]] <- contacted                                        # If respective host successfully contacts others, add to list.
         }
       }
       
       vector.contacted <- unlist(list.contacted)
       
-      temp.host.contacts[,"contacter"] <- vector.contacters
+      temp.host.contacts[,"contacter"] <- vector.contacters   # Combine contactor and contacted vectors.
       temp.host.contacts[,"contacted"] <- vector.contacted
       
-      host.contacts[[i]] <- temp.host.contacts
+      host.contacts[[i]] <- temp.host.contacts                # Add to 'host.contact' object, which will have a different contact list for each t.
       
     }
     
     
-    # Calculate logit function used to determine pathogen transmission.
+    # Calculate logit functions for P1 and P2 used to determine pathogen transmission.
     coef.logit.p1 <- calcLogit(lo.k = lo.k.p1, 
                               lo.n = lo.n, 
                               med.k = med.k.p1, 
@@ -122,7 +121,7 @@ runModel <- function(v) {
                               hi.k = hi.k.p1, 
                               hi.n = hi.n)
     
-    coef.logit.p1["(Intercept)"] <- rnorm(1, mean = coef.logit.p1["(Intercept)"], sd = abs(coef.logit.p1["(Intercept)"] * sd.var))
+    coef.logit.p1["(Intercept)"] <- rnorm(1, mean = coef.logit.p1["(Intercept)"], sd = abs(coef.logit.p1["(Intercept)"] * sd.var))   # For sensitivity analysis, vary logit outcomes.
     coef.logit.p1["load"] <- rnorm(1, mean = coef.logit.p1["load"], sd = coef.logit.p1["load"] * sd.var)
     
     coef.logit.p2 <- calcLogit(lo.k = lo.k.p2, 
@@ -137,7 +136,7 @@ runModel <- function(v) {
     
     coef.logit <- list("P1" = coef.logit.p1, "P2" = coef.logit.p2)
     
-    # Calculate random uniform numbers (for b/w transmission probability) and store in object with length of edge list and time.
+    # Calculate random uniform numbers (for b/w transmission probability) and store in object with length of contact list and time.
     host.trans.probs <- list(NULL)
     for (i in 1:t) {
       host.trans.probs[[i]] <- matrix(data = NA, nrow = nrow(host.contacts[[i]]), ncol = 2, dimnames = list(seq(nrow(host.contacts[[i]])), 
@@ -160,7 +159,7 @@ runModel <- function(v) {
     
     # Array to hold the within-host variables and set the starting conditions.
     results.p1.p2.equilibrium <- array(host.status, dim = c(N, length(status.categ), t), dimnames = list(c(seq(N)), status.categ, seq(t)))
-    results.p1.p2.equilibrium[,,1] <- initialCondit(results = results.p1.p2.equilibrium,
+    results.p1.p2.equilibrium[,,1] <- initialCondit(results = results.p1.p2.equilibrium[,,1],
                                                     initP1 = initP1, 
                                                     initP1.load = initP1.load, 
                                                     initP2 = initP2, 
@@ -174,8 +173,6 @@ runModel <- function(v) {
                                                       host.trans.probs = host.trans.probs[[a]],
                                                       N = N,
                                                       times = times,
-                                                      omega1 = omega1,
-                                                      omega2 = omega2,
                                                       bottle = bottle,
                                                       eta = eta,
                                                       theta = theta,
@@ -200,19 +197,16 @@ runModel <- function(v) {
     # graphBetween(t = t, results = results.p1.p2.equilibrium)
     # graphWithin(t = t, results = results.p1.p2.equilibrium)
     
-   
-    # print(paste("STEP 1 of SIMULATION # ", v, " COMPLETE", sep = ""))
-  
   #### 2. #### RESIDENT EQUILIBRIUMS ####  -----------------------------------------------------------------------------
   
     ### P1 as resident ###
     # Specify the initial conditions.
     initP1 <- 10          # Initial number of hosts infected with pathogen 1.
-    initP2 <- 0          # Initial number of hosts infected with pathogen 2.
+    initP2 <- 0           # Initial number of hosts infected with pathogen 2.
     
     # Array to hold the within-host variables and set the starting conditions.
     results.p1.resident <- array(host.status, dim = c(N, length(status.categ), t), dimnames = list(c(seq(N)), status.categ, seq(t)))
-    results.p1.resident[,,1] <- initialCondit(results = results.p1.resident,
+    results.p1.resident[,,1] <- initialCondit(results = results.p1.resident[,,1],
                                               initP1 = initP1, 
                                               initP1.load = initP1.load, 
                                               initP2 = initP2, 
@@ -227,8 +221,6 @@ runModel <- function(v) {
                                                 host.trans.probs = host.trans.probs[[a]],
                                                 N = N,
                                                 times = times,
-                                                omega1 = omega1,
-                                                omega2 = omega2,
                                                 bottle = bottle,
                                                 eta = eta,
                                                 theta = theta,
@@ -262,7 +254,7 @@ runModel <- function(v) {
     
     # Array to hold the within-host variables and set the starting conditions.
     results.p2.resident <- array(host.status, dim = c(N, length(status.categ), t), dimnames = list(c(seq(N)), status.categ, seq(t)))
-    results.p2.resident[,,1] <- initialCondit(results = results.p2.resident,
+    results.p2.resident[,,1] <- initialCondit(results = results.p2.resident[,,1],
                                               initP1 = initP1, 
                                               initP1.load = initP1.load, 
                                               initP2 = initP2, 
@@ -277,8 +269,6 @@ runModel <- function(v) {
                                                 host.trans.probs = host.trans.probs[[a]],
                                                 N = N,
                                                 times = times,
-                                                omega1 = omega1,
-                                                omega2 = omega2,
                                                 bottle = bottle,
                                                 eta = eta,
                                                 theta = theta,
@@ -298,11 +288,6 @@ runModel <- function(v) {
                                                 mu = mu)
       
       
-      
-      # Print progress in 10% increments.
-      # if(a %% 10 == 0) {
-      #   print(paste(a, "of", t, "finished", "[", round((a + 1)/t*100), "%]"))
-      # }
     }
     
     # graphBetween(t = t, results = results.p2.resident)
@@ -321,9 +306,8 @@ runModel <- function(v) {
                         "coef.logit" = coef.logit)
 
 
-  save(param.results, file = paste("param_results_", v, ".RData", sep = ""))
-  # print(paste("STEP 2 of SIMULATION # ", v, " COMPLETE", sep = ""))
-  
+  save(param.results, file = paste("param_results_", v, ".RData", sep = ""))   # Save parameter data for sensitivity analysis and for checks.
+
 
   #### 3. #### CALCULATE LOW DENSITY GROWTH RATES WITHOUT PARTITIONING #### ----------------------------------
   
@@ -340,15 +324,14 @@ runModel <- function(v) {
   # Calculate initial invasion abundances for P1 and P2.
   iabun <- 0.005 * (sum(p1.p2.equilibrium[,c("P1","P2"),])/(2*length(equil.times)))
   init.abun <- rep(iabun/N, N)
-  init.abun <- ifelse(init.abun <= 0.02, 0.02, init.abun)
-  iabun <- ifelse(init.abun[1] == 0.02, N, iabun)
+  
+  # If initial invader abundance is too low, manually specify.
+  init.abun <- ifelse(init.abun <= 0.02, 0.02, init.abun)   # I set the manual initial invader abundance at twice the threshold for pathogen removal. 
+  iabun <- ifelse(init.abun[1] == 0.02, N, iabun)           # Recalculate total invader abundance after manual reset.
   
   
   
-  ### P1 as resident, P2 as invader ###
-  # Reset invade abundance.
-  invade.abundance <- init.abun
-  
+  ### Calculate GRWR with P1 as resident, P2 as invader ###
   model.final.outcome <- calculateLDGR(resident.equilibrium = p1.resident.equilibrium,
                                        host.status = host.status,
                                        status.categ = status.categ,
@@ -356,7 +339,7 @@ runModel <- function(v) {
                                        equil.times = equil.times, 
                                        spat.equil.times = spat.equil.times, 
                                        iabun = iabun,
-                                       invade.abundance = invade.abundance,
+                                       invade.abundance = init.abun,
                                        t = t,
                                        host.contacts.eq = host.contacts.eq,
                                        coef.logit = coef.logit,
@@ -365,8 +348,6 @@ runModel <- function(v) {
                                        times = times,
                                        bottle = bottle, 
                                        eta = eta,
-                                       omega1 = omega1,
-                                       omega2 = omega2,
                                        theta = theta,
                                        Rmax = Rmax,
                                        delta1 = delta1,
@@ -394,10 +375,6 @@ runModel <- function(v) {
   r.bar.p2.invader <- r.bar.p2["P2"]
   r.bar.p1.resident <- r.bar.p2["P1"]
   
-  # p1.resident <- p1.resident.p2.invader.t0[,"P1",, drop = FALSE]
-  # p2.invader <- p1.resident.p2.invader.t0[,"P2",, drop = FALSE]
-  
-  
   
   ### P2 as resident, P1 as invader ###
   model.final.outcome <- calculateLDGR(resident.equilibrium = p2.resident.equilibrium,
@@ -407,7 +384,7 @@ runModel <- function(v) {
                                        equil.times = equil.times, 
                                        spat.equil.times = spat.equil.times, 
                                        iabun = iabun,
-                                       invade.abundance = invade.abundance,
+                                       invade.abundance = init.abun,
                                        t = t,
                                        host.contacts.eq = host.contacts.eq,
                                        coef.logit = coef.logit,
@@ -416,8 +393,6 @@ runModel <- function(v) {
                                        times = times,
                                        bottle = bottle, 
                                        eta = eta,
-                                       omega1 = omega1,
-                                       omega2 = omega2,
                                        theta = theta,
                                        Rmax = Rmax,
                                        delta1 = delta1,
@@ -446,48 +421,35 @@ runModel <- function(v) {
   r.bar.p2.resident <- r.bar.p1["P2"]
   
   
-  # p2.resident <- p2.resident.p1.invader.t0[,"P2",, drop = FALSE]
-  # p1.invader <- p2.resident.p1.invader.t0[,"P1",, drop = FALSE]
-  
-  # print(paste("STEP 3 of SIMULATION # ", v, " COMPLETE", sep = ""))
-  
+
   
   #### 4. #### PARTITION GROWTH RATE WITH EACH PATHOGEN AS INVADER #### ----------------------------------
   #### 4.1 ### No variation in fitness or density. ###
 
   p1.resident.p2.invader.all.averaged <- colMeans(p1.resident.p2.invader.t0)
   p2.resident.p1.invader.all.averaged <- colMeans(p2.resident.p1.invader.t0)
-  
-  
-  # p1.invader.averaged <- p2.resident.p1.invader.all.averaged["P1",]
-  # p2.invader.averaged <- p1.resident.p2.invader.all.averaged["P2",]
-  
-  # p1.resident.averaged <- p1.resident.p2.invader.all.averaged["P1",]
-  # p2.resident.averaged <- p2.resident.p1.invader.all.averaged["P2",]
-  
 
   
-  # Invade with other pathogen. #
-  # Pull results from time frame in which pathogens are at equilibrium.
+  # Create object to hold results for this decomposition and pull results from time frame in which pathogens are at equilibrium.
   p1.resident.equilibrium.no.var <- p1.resident.p2.invader.t0
   p2.resident.equilibrium.no.var <- p2.resident.p1.invader.t0
   
   
   ### P1 as resident, P2 as invader ###
-  # Change each component abundance to reflect averaged state.
+  # Overwrite each component abundance (other than P2 invader) to reflect averaged state.
+  # NOTE: Invader abundances are not overwritten, thereby remaining at spatial equilibrium for each t_k.
   for (i in 1:length(equil.times)) {
-    for (k in status.categ) {
+    for (k in c("P1", "I1", "I2", "M1", "M2")) {
       p1.resident.equilibrium.no.var[,k,i] <- p1.resident.p2.invader.all.averaged[k,i]
     }
   }
   
+  # Calculate GRWR for each t_k under these decomposition conditions.
   model.final.outcome <- calculateCoexist(resident.equilibrium = p1.resident.equilibrium.no.var,
                                           host.status = host.status,
                                           status.categ = status.categ,
                                           equil.times = equil.times, 
                                           spat.equil.times = spat.equil.times, 
-                                          iabun = iabun,
-                                          invade.abundance = invade.abundance,
                                           t = t,
                                           host.contacts.eq = host.contacts.eq,
                                           coef.logit = coef.logit,
@@ -496,8 +458,6 @@ runModel <- function(v) {
                                           times = times,
                                           bottle = bottle, 
                                           eta = eta,
-                                          omega1 = omega1,
-                                          omega2 = omega2,
                                           theta = theta,
                                           Rmax = Rmax,
                                           delta1 = delta1,
@@ -527,21 +487,19 @@ runModel <- function(v) {
   
   
   ### P2 as resident, P1 as invader ###
-  # Change each component abundance to reflect averaged state.
+  # Overwrite each component abundance (other than P1 invader) to reflect averaged state.
   for (i in 1:length(equil.times)) {
-    for (k in status.categ) {
+    for (k in c("P2", "I1", "I2", "M1", "M2")) {
       p2.resident.equilibrium.no.var[,k,i] <- p2.resident.p1.invader.all.averaged[k,i]
     }
   }
   
-  
+  # Calculate GRWR for each t_k under these decomposition conditions.
   model.final.outcome <- calculateCoexist(resident.equilibrium = p2.resident.equilibrium.no.var,
                                           host.status = host.status,
                                           status.categ = status.categ,
                                           equil.times = equil.times, 
                                           spat.equil.times = spat.equil.times, 
-                                          iabun = iabun,
-                                          invade.abundance = invade.abundance,
                                           t = t,
                                           host.contacts.eq = host.contacts.eq,
                                           coef.logit = coef.logit,
@@ -550,8 +508,6 @@ runModel <- function(v) {
                                           times = times,
                                           bottle = bottle, 
                                           eta = eta,
-                                          omega1 = omega1,
-                                          omega2 = omega2,
                                           theta = theta,
                                           Rmax = Rmax,
                                           delta1 = delta1,
@@ -584,29 +540,25 @@ runModel <- function(v) {
   
   
   #### 4.2 ### Variation in fitness, constant density. ###
-  # Invade with other pathogen. #
-  # Pull results from time frame in which pathogens are at equilibrium.
+  # Create object to hold results for this decomposition and pull results from time frame in which pathogens are at equilibrium.
   p1.resident.equilibrium.fitness.var <- p1.resident.p2.invader.t0
   p2.resident.equilibrium.fitness.var <- p2.resident.p1.invader.t0
   
 
   ### P1 as resident, P2 as invader ###
-  # Change each component abundance to reflect non-varying density.
+  # Overwrite density components (other than P2 invader) to reflect variation in fitness only.
   for (i in 1:length(equil.times)) {
-    for (k in density.categ) {
+    for (k in c("P1")) {
       p1.resident.equilibrium.fitness.var[,k,i] <- p1.resident.p2.invader.all.averaged[k,i]
     }
   }
   
-  # Reset invade abundance.
-
+  # Calculate GRWR for each t_k under these decomposition conditions.
   model.final.outcome <- calculateCoexist(resident.equilibrium = p1.resident.equilibrium.fitness.var,
                                           host.status = host.status,
                                           status.categ = status.categ,
                                           equil.times = equil.times, 
                                           spat.equil.times = spat.equil.times, 
-                                          iabun = iabun,
-                                          invade.abundance = invade.abundance,
                                           t = t,
                                           host.contacts.eq = host.contacts.eq,
                                           coef.logit = coef.logit,
@@ -615,8 +567,6 @@ runModel <- function(v) {
                                           times = times,
                                           bottle = bottle, 
                                           eta = eta,
-                                          omega1 = omega1,
-                                          omega2 = omega2,
                                           theta = theta,
                                           Rmax = Rmax,
                                           delta1 = delta1,
@@ -646,21 +596,19 @@ runModel <- function(v) {
   
   
   ### P2 as resident, P1 as invader ###
-  # Change each component abundance to reflect non-varying density.
+  # Overwrite density components (other than P1 invader) to reflect variation in fitness only.
   for (i in 1:length(equil.times)) {
-    for (k in density.categ) {
+    for (k in c("P2")) {
       p2.resident.equilibrium.fitness.var[,k,i] <- p2.resident.p1.invader.all.averaged[k,i]
     }
   }
   
-  
+  # Calculate GRWR for each t_k under these decomposition conditions.
   model.final.outcome <- calculateCoexist(resident.equilibrium = p2.resident.equilibrium.fitness.var,
                                           host.status = host.status,
                                           status.categ = status.categ,
                                           equil.times = equil.times, 
                                           spat.equil.times = spat.equil.times, 
-                                          iabun = iabun,
-                                          invade.abundance = invade.abundance,
                                           t = t,
                                           host.contacts.eq = host.contacts.eq,
                                           coef.logit = coef.logit,
@@ -669,8 +617,6 @@ runModel <- function(v) {
                                           times = times,
                                           bottle = bottle, 
                                           eta = eta,
-                                          omega1 = omega1,
-                                          omega2 = omega2,
                                           theta = theta,
                                           Rmax = Rmax,
                                           delta1 = delta1,
@@ -701,26 +647,24 @@ runModel <- function(v) {
   
   
   #### 4.3 ### Variation in density, constant fitness. ###
-  # Invade with other pathogen. #
-  # Pull results from time frame in which pathogens are at equilibrium.
+  # Create object to hold results for this decomposition and pull results from time frame in which pathogens are at equilibrium.
   p1.resident.equilibrium.density.var <- p1.resident.p2.invader.t0
   p2.resident.equilibrium.density.var <- p2.resident.p1.invader.t0
   
   ### P1 as resident, P2 as invader ###
-  # Change each component abundance to reflect non-varying fitness.
+  # Overwrite fitness components to reflect variation in density only.
   for (i in 1:length(equil.times)) {
-    for (k in fitness.categ) {
+    for (k in c("I1","I2","M1","M2","R")) {
       p1.resident.equilibrium.density.var[,k,i] <- p1.resident.p2.invader.all.averaged[k,i]
     }
   }
   
+  # Calculate GRWR for each t_k under these decomposition conditions.
   model.final.outcome <- calculateCoexist(resident.equilibrium = p1.resident.equilibrium.density.var,
                                           host.status = host.status,
                                           status.categ = status.categ,
                                           equil.times = equil.times, 
                                           spat.equil.times = spat.equil.times, 
-                                          iabun = iabun,
-                                          invade.abundance = invade.abundance,
                                           t = t,
                                           host.contacts.eq = host.contacts.eq,
                                           coef.logit = coef.logit,
@@ -729,8 +673,6 @@ runModel <- function(v) {
                                           times = times,
                                           bottle = bottle, 
                                           eta = eta,
-                                          omega1 = omega1,
-                                          omega2 = omega2,
                                           theta = theta,
                                           Rmax = Rmax,
                                           delta1 = delta1,
@@ -761,21 +703,19 @@ runModel <- function(v) {
   
   
   ### P2 as resident, P1 as invader ###
-  # Change each component abundance to reflect non-varying fitness.
+  # Overwrite fitness components to reflect variation in density only.
   for (i in 1:length(equil.times)) {
-    for (k in fitness.categ) {
+    for (k in c("I1","I2","M1","M2","R")) {
       p2.resident.equilibrium.density.var[,k,i] <- p2.resident.p1.invader.all.averaged[k,i]
     }
   }
   
-  
+  # Calculate GRWR for each t_k under these decomposition conditions.
   model.final.outcome <- calculateCoexist(resident.equilibrium = p2.resident.equilibrium.density.var,
                                           host.status = host.status,
                                           status.categ = status.categ,
                                           equil.times = equil.times, 
                                           spat.equil.times = spat.equil.times, 
-                                          iabun = iabun,
-                                          invade.abundance = invade.abundance,
                                           t = t,
                                           host.contacts.eq = host.contacts.eq,
                                           coef.logit = coef.logit,
@@ -784,8 +724,6 @@ runModel <- function(v) {
                                           times = times,
                                           bottle = bottle, 
                                           eta = eta,
-                                          omega1 = omega1,
-                                          omega2 = omega2,
                                           theta = theta,
                                           Rmax = Rmax,
                                           delta1 = delta1,
@@ -814,7 +752,6 @@ runModel <- function(v) {
   
   ##############################################################################
   
-  #### 4.4 ### Calculate invader/resident comparisons. ####
   # Calculate interaction term. #
   epsilon.interaction.p2.invader <- r.bar.p2.invader - (epsilon.0.p2.invader + epsilon.fitness.p2.invader + epsilon.density.p2.invader)
   epsilon.interaction.p1.invader <- r.bar.p1.invader - (epsilon.0.p1.invader + epsilon.fitness.p1.invader + epsilon.density.p1.invader)
@@ -822,9 +759,11 @@ runModel <- function(v) {
   epsilon.interaction.p2.resident <- r.bar.p2.resident - (epsilon.0.p2.resident + epsilon.fitness.p2.resident + epsilon.density.p2.resident)
   epsilon.interaction.p1.resident <- r.bar.p1.resident - (epsilon.0.p1.resident + epsilon.fitness.p1.resident + epsilon.density.p1.resident)
   
-  ## LDGR ##
-  p1.LDGR <- r.bar.p1.invader - r.bar.p2.resident
-  p2.LDGR <- r.bar.p2.invader - r.bar.p1.resident
+  
+  ##############################################################################
+  
+  
+  #### 4.4 ### Calculate invader/resident comparisons. ####
   
   # Invader only results #
   p1.invader.decomp.indiv <- c(r.bar.p1.invader, 
@@ -844,13 +783,13 @@ runModel <- function(v) {
   names(p2.invader.decomp.indiv) <- c("LDGR", "e0", "eL", "eD", "eL*D")
   
   # Invader-resident comparisons #
-  p1.invader.decomp.compare <- c(p1.LDGR, 
+  p1.invader.decomp.compare <- c(r.bar.p1.invader - r.bar.p2.resident, 
                                  (epsilon.0.p1.invader - epsilon.0.p2.resident),
                                  (epsilon.fitness.p1.invader - epsilon.fitness.p2.resident),
                                  (epsilon.density.p1.invader - epsilon.density.p2.resident),
                                  (epsilon.interaction.p1.invader - epsilon.interaction.p2.resident))
   
-  p2.invader.decomp.compare <- c(p2.LDGR,
+  p2.invader.decomp.compare <- c(r.bar.p2.invader - r.bar.p1.resident,
                                  (epsilon.0.p2.invader - epsilon.0.p1.resident),
                                  (epsilon.fitness.p2.invader - epsilon.fitness.p1.resident),
                                  (epsilon.density.p2.invader - epsilon.density.p1.resident),
@@ -859,8 +798,6 @@ runModel <- function(v) {
   names(p1.invader.decomp.compare) <- c("LDGR", "e0", "eL", "eD", "eL*D")
   names(p2.invader.decomp.compare) <- c("LDGR", "e0", "eL", "eD", "eL*D")
   
-  
-  # print(paste("STEP 4 of SIMULATION # ", v, " COMPLETE", sep = ""))
   
   #### 5. #### GENERATING OUTPUT #### ----------------------------------
   

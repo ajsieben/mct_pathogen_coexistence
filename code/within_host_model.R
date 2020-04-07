@@ -16,6 +16,7 @@ eventfun <- function(t, y, parms) {
   })
 }
 
+# Series of equations that describe within-host immune dynamics that is used by the ODE solver.
 deriv <- function(t, state, parms) {
   with(as.list(c(state, parms)), {
     dR <- theta * (1 - (R/Rmax)) - (delta1 * P1 * R) - (delta2 * P2 * R)
@@ -85,7 +86,7 @@ withinHost <- function(temp,
     wnhost_results <- lsoda(y = init, times = times, func = deriv, parms = parms, events = list(func = eventfun,
                                                                                                 time = times))
     temp[i,] <- wnhost_results[2, c("P1", "P2", "I1", "I2", "M1", "M2", "R")]
-    # The output of lsoda is a matrix with the first column = time variable and rows are times.
+    # The output of lsoda is a matrix with the first column = time variable and rows are times. Only take results from the simulated step forward (i.e. second row).
   }
   
   return(temp)
