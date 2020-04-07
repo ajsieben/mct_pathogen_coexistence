@@ -8,7 +8,7 @@ generateParams <- function() {
   
   ##### NEUTRAL PATHOGENS #####
   N <- 1000   # See decomposition.R for descriptions of each parameter.          
-  t <- 500           
+  t <- 400           
   
   sd.var <- 0
   
@@ -48,8 +48,9 @@ generateParams <- function() {
   mu <- 0.0005
   
   # Coexistence decomposition parameters.
-  equil.times <- c(490:500)
+  equil.times <- c(390:400)
   spat.equil.times <- 10
+  
   
   #----------------------------
   

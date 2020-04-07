@@ -818,10 +818,9 @@ runModel <- function(v) {
 }
 
 ##########################################
-##########################################
-##########################################
-##########################################
 
+
+##### TESTING CODE ########
 
 # results.p1.p2.equilibrium <- raw.results$results.p1.p2.equilibrium
 # results.p1.resident <- raw.results$results.p1.resident

@@ -15,8 +15,8 @@ source("model_functions.R")
 source("within_host_model.R")
 source("between_host_model.R")
 
-nProc <- 1024
-numSims <- 1023
+nProc <- 512
+numSims <- 511
 
 
 simFunc <- function(v) {
