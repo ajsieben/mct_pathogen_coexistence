@@ -425,7 +425,8 @@ runModel <- function(v) {
   
   #### 4. #### PARTITION GROWTH RATE WITH EACH PATHOGEN AS INVADER #### ----------------------------------
   #### 4.1 ### No variation in fitness or density. ###
-
+  
+  # Average host states across entire population. Specific averaged conditions will be used from this object, depending on the decomposition.
   p1.resident.p2.invader.all.averaged <- colMeans(p1.resident.p2.invader.t0)
   p2.resident.p1.invader.all.averaged <- colMeans(p2.resident.p1.invader.t0)
 
