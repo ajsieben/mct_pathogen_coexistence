@@ -2,11 +2,15 @@
 # library("deSolve")
 # library("ggplot2")
 
-# setwd("./code")
+
+# source("./code/model_functions.R")
+# source("./code/within_host_model.R")
+# source("./code/between_host_model.R")
 
 source("model_functions.R")
 source("within_host_model.R")
 source("between_host_model.R")
+
 
 runModel <- function(v) {
 
@@ -197,6 +201,8 @@ runModel <- function(v) {
     # graphBetween(t = t, results = results.p1.p2.equilibrium)
     # graphWithin(t = t, results = results.p1.p2.equilibrium)
     
+    # wnHostDiag(N = N, host = 1, times = c(1:t), results = results.p1.p2.equilibrium)
+    
   #### 2. #### RESIDENT EQUILIBRIUMS ####  -----------------------------------------------------------------------------
   
     ### P1 as resident ###
@@ -301,8 +307,6 @@ runModel <- function(v) {
   # }
   
   param.results <- list("parameter.list" = parameter.list,
-                        "host.contacts" = host.contacts,
-                        "host.trans.probs" = host.trans.probs,
                         "coef.logit" = coef.logit)
 
 
@@ -440,7 +444,7 @@ runModel <- function(v) {
   # Overwrite each component abundance (other than P2 invader) to reflect averaged state.
   # NOTE: Invader abundances are not overwritten, thereby remaining at spatial equilibrium for each t_k.
   for (i in 1:length(equil.times)) {
-    for (k in c("P1", "I1", "I2", "M1", "M2")) {
+    for (k in c("P1", "I1", "I2", "M1", "M2", "R")) {
       p1.resident.equilibrium.no.var[,k,i] <- p1.resident.p2.invader.all.averaged[k,i]
     }
   }
@@ -490,7 +494,7 @@ runModel <- function(v) {
   ### P2 as resident, P1 as invader ###
   # Overwrite each component abundance (other than P1 invader) to reflect averaged state.
   for (i in 1:length(equil.times)) {
-    for (k in c("P2", "I1", "I2", "M1", "M2")) {
+    for (k in c("P2", "I1", "I2", "M1", "M2", "R")) {
       p2.resident.equilibrium.no.var[,k,i] <- p2.resident.p1.invader.all.averaged[k,i]
     }
   }
@@ -806,8 +810,7 @@ runModel <- function(v) {
                       "results.p1.resident" = results.p1.resident,
                       "results.p2.resident" = results.p2.resident)
   
-  decomp.results <- list("parameter.list" = parameter.list,
-                         "p1.invader.decomp.indiv" = p1.invader.decomp.indiv,
+  decomp.results <- list("p1.invader.decomp.indiv" = p1.invader.decomp.indiv,
                          "p1.invader.decomp.compare" = p1.invader.decomp.compare,
                          "p2.invader.decomp.indiv" = p2.invader.decomp.indiv,
                          "p2.invader.decomp.compare" = p2.invader.decomp.compare)
