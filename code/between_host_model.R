@@ -1,8 +1,8 @@
 #### BETWEEN-HOST MODEL ####  -----------------------------------------------------------------------------
+library("here")
 
-source("model_functions.R")
-source("within_host_model.R")
-
+source(here("code/model_functions.R"))
+source(here("code/within_host_model.R"))
 
 # IBM for one time step.
 betweenHost <- function(host.statuses.input, 
@@ -30,7 +30,7 @@ betweenHost <- function(host.statuses.input,
                         mu)  {
   
   temp <- host.statuses.input
-    
+  
   ### 1. DETERMINE PATHOGEN TRANSMISSION ###
   
   for (i in 1:nrow(host.contacts)) {
@@ -44,9 +44,9 @@ betweenHost <- function(host.statuses.input,
     # Determine if transmission occurs for P1.
     if (host.trans.probs[i,"P1"] <= logitToProb(coef.logit$P1, path.load.p1)) {
       
-      infecting.amount.p1 <- sum(rbinom(n = temp[contacting, "P1"], size = 1, prob = bottle))   # Calculate the amount of pathogen transmitted to contacted host.
-      temp[contacting, "P1"] <- temp[contacting, "P1"] - infecting.amount.p1                    # Remove transmitted pathogen from contacting host. 
-      temp[contacted, "P1"] <- temp[contacted, "P1"] + infecting.amount.p1                      # Add transmitted pathogen to contacted host.
+      infecting.amount.p1 <- sum(rbinom(n = abs(temp[contacting, "P1"]), size = 1, prob = bottle))   # Calculate the amount of pathogen transmitted to contacted host.
+      temp[contacting, "P1"] <- temp[contacting, "P1"] - infecting.amount.p1                         # Remove transmitted pathogen from contacting host. 
+      temp[contacted, "P1"] <- temp[contacted, "P1"] + infecting.amount.p1                           # Add transmitted pathogen to contacted host.
 
     }
     
@@ -54,7 +54,7 @@ betweenHost <- function(host.statuses.input,
     # Determine if transmission occurs for P2.
     if (host.trans.probs[i,"P2"] <= logitToProb(coef.logit$P2, path.load.p2)) {
       
-      infecting.amount.p2 <- sum(rbinom(n = temp[contacting, "P2"], size = 1, prob = bottle))   # Calculate the amount of pathogen transmitted to contacted host.
+      infecting.amount.p2 <- sum(rbinom(n = abs(temp[contacting, "P2"]), size = 1, prob = bottle))   # Calculate the amount of pathogen transmitted to contacted host.
       temp[contacting, "P2"] <- temp[contacting, "P2"] - infecting.amount.p2                    # Remove transmitted pathogen from contacting host.
       temp[contacted, "P2"] <- temp[contacted, "P2"] + infecting.amount.p2                      # Add transmitted pathogen to contacted host.
       

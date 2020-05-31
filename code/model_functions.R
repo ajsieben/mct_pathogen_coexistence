@@ -1,14 +1,13 @@
 #### INITIALIZING FUNCTIONS ####
 
 # Function to draw parameters for between-host and within-host models.
-generateParams <- function() {  
-  # Input the parameters to generate depending on the scenario you wish to model (i.e. neutral, comp/col, sensitivity analysis).
+generateParams <- function() { 
   
-  #----------------------------
+  # Input the parameters to generate depending on the scenario you wish to model (i.e. neutral, comp/col, sensitivity analysis).
   
   ##### NEUTRAL PATHOGENS #####
   N <- 1000   # See decomposition.R for descriptions of each parameter.          
-  t <- 400           
+  t <- 2000           
   
   sd.var <- 0
   
@@ -29,7 +28,7 @@ generateParams <- function() {
   hi.k.p2 <- 0.05
   
   ## Within-host model parameters ##
-  times <- seq(0, 1, by = 1)
+  times <- seq(0, 5, by = 5)
   
   theta <- 10
   Rmax <- 100
@@ -48,9 +47,8 @@ generateParams <- function() {
   mu <- 0.0005
   
   # Coexistence decomposition parameters.
-  equil.times <- c(390:400)
+  equil.times <- c(1900:2000)
   spat.equil.times <- 10
-  
   
   #----------------------------
   
@@ -416,20 +414,19 @@ graphWithin <- function(t, results) {
   
 }
 
-wnHostDiag <- function(N, host, t, results) {
-  times <- c(1:t)
-  
+wnHostDiag <- function(N, host, times, results) {
+
   diagHost <- t(results[host,,times])
   diagHost <- as.data.frame(diagHost)
   
   ggplot(diagHost, aes(x = times)) +
-    geom_line(aes(y = P1), color = "red", size = 1) +
-    geom_line(aes(y = I1), color = "green", size = 1) +
-    geom_line(aes(y = M1), color = "blue", size = 1) +
-    geom_line(aes(y = P2), color = "red", linetype = 2, size = 1) +
-    geom_line(aes(y = I2), color = "green", linetype = 2, size = 1) +
-    geom_line(aes(y = M2), color = "blue", linetype = 2, size = 1) +
-    geom_line(aes(y = R), color = "black", linetype = 1, size = 1) +
+    geom_line(aes(y = P1), color = "orange", size = 1) +
+    # geom_line(aes(y = I1), color = "green", size = 1) +
+    # geom_line(aes(y = M1), color = "blue", size = 1) +
+    geom_line(aes(y = P2), color = "blue", linetype = 1, size = 1) +
+    # geom_line(aes(y = I2), color = "green", linetype = 2, size = 1) +
+    # geom_line(aes(y = M2), color = "blue", linetype = 2, size = 1) +
+    # geom_line(aes(y = R), color = "black", linetype = 1, size = 1) +
     ggtitle(paste("HOST #", host, sep = "")) +
     theme_classic()
 }

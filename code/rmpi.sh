@@ -10,7 +10,7 @@
 #SBATCH --job-name=pathogen_coexistence
 
 # Change to the relevant working directory
-cd /project/coexistence/pathogen_coexistence/comp_col_specific
+cd /project/coexistence/pathogen_coexistence/time_step_5
 
 # Load R and MPI
 module load gcc/7.3.0 r/3.5.3 openmpi/3.1.0 r-rmpi/0.6-9-r353-py27

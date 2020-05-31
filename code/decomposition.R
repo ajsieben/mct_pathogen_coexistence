@@ -1,22 +1,15 @@
 #### COMPLETE MODEL WITH DECOMPOSITIONS ####  -----------------------------------------------------------------------------
-# library("deSolve")
-# library("ggplot2")
+library("deSolve")
+library("ggplot2")
+library ("here")
 
-
-# source("./code/model_functions.R")
-# source("./code/within_host_model.R")
-# source("./code/between_host_model.R")
-
-source("model_functions.R")
-source("within_host_model.R")
-source("between_host_model.R")
+source(here("code/model_functions.R"))
+source(here("code/within_host_model.R"))
+source(here("code/between_host_model.R"))
 
 
 runModel <- function(v) {
 
-  # residents.established <- FALSE
-  # while (residents.established == FALSE) {
-    
     #### DEFINE PARAMETERS ####
     parameter.list <- generateParams()
     
@@ -295,23 +288,10 @@ runModel <- function(v) {
       
       
     }
-    
+
     # graphBetween(t = t, results = results.p2.resident)
     # graphWithin(t = t, results = results.p2.resident)
-    
-    
-  #   residents.established <- ifelse(sum(results.p1.resident[,"P1", max(equil.times)]) > 100 | sum(results.p2.resident[,"P2", max(equil.times)]) > 100,
-  #                                 TRUE, FALSE)
-  # 
-  # 
-  # }
   
-  param.results <- list("parameter.list" = parameter.list,
-                        "coef.logit" = coef.logit)
-
-
-  save(param.results, file = paste("param_results_", v, ".RData", sep = ""))   # Save parameter data for sensitivity analysis and for checks.
-
 
   #### 3. #### CALCULATE LOW DENSITY GROWTH RATES WITHOUT PARTITIONING #### ----------------------------------
   
@@ -330,8 +310,8 @@ runModel <- function(v) {
   init.abun <- rep(iabun/N, N)
   
   # If initial invader abundance is too low, manually specify.
-  init.abun <- ifelse(init.abun <= 0.02, 0.02, init.abun)   # I set the manual initial invader abundance at twice the threshold for pathogen removal. 
-  iabun <- ifelse(init.abun[1] == 0.02, N, iabun)           # Recalculate total invader abundance after manual reset.
+  init.abun <- ifelse(init.abun <= 0.02, 0.02, init.abun)          # I set the manual initial invader abundance at twice the threshold for pathogen removal. 
+  iabun <- ifelse(init.abun[1] == 0.02, N * 0.02, iabun)           # Recalculate total invader abundance after manual reset.
   
   
   
@@ -425,6 +405,8 @@ runModel <- function(v) {
   r.bar.p2.resident <- r.bar.p1["P2"]
   
   
+  
+  print("COMPLETED STEP 3")
 
   
   #### 4. #### PARTITION GROWTH RATE WITH EACH PATHOGEN AS INVADER #### ----------------------------------
@@ -539,7 +521,6 @@ runModel <- function(v) {
   epsilon.0.p2.resident <- r.bar.no.var.p1["P2"]
   
   
-  
   ####################################################################
   
   
@@ -648,6 +629,7 @@ runModel <- function(v) {
   epsilon.fitness.p1.invader <- r.bar.fitness.p1["P1"] - epsilon.0.p1.invader
   epsilon.fitness.p2.resident <- r.bar.fitness.p1["P2"] - epsilon.0.p2.resident
   
+  
   ####################################################################
   
   
@@ -755,6 +737,8 @@ runModel <- function(v) {
   epsilon.density.p1.invader <- r.bar.density.p1["P1"] - epsilon.0.p1.invader
   epsilon.density.p2.resident <- r.bar.density.p1["P2"] - epsilon.0.p2.resident
   
+  
+  
   ##############################################################################
   
   # Calculate interaction term. #
@@ -806,64 +790,21 @@ runModel <- function(v) {
   
   #### 5. #### GENERATING OUTPUT #### ----------------------------------
   
-  raw.results <- list("results.p1.p2.equilibrium" = results.p1.p2.equilibrium,
-                      "results.p1.resident" = results.p1.resident,
-                      "results.p2.resident" = results.p2.resident)
-  
   decomp.results <- list("p1.invader.decomp.indiv" = p1.invader.decomp.indiv,
                          "p1.invader.decomp.compare" = p1.invader.decomp.compare,
                          "p2.invader.decomp.indiv" = p2.invader.decomp.indiv,
                          "p2.invader.decomp.compare" = p2.invader.decomp.compare)
-
-
-  save(raw.results, file = paste("raw_results_", v, ".RData", sep = ""))
+  
+  
+  param.results <- list("parameter.list" = parameter.list,
+                        "coef.logit" = coef.logit)
+  
+  raw.results <- list("results.p1.p2.equilibrium" = results.p1.p2.equilibrium,
+                      "results.p1.resident" = results.p1.resident,
+                      "results.p2.resident" = results.p2.resident)
+  
   save(decomp.results, file = paste("decomp_results_", v, ".RData", sep = ""))
+  save(param.results, file = paste("param_results_", v, ".RData", sep = ""))   # Save parameter data for sensitivity analysis and for checks.
+  save(raw.results, file = paste("raw_results_", v, ".RData", sep = ""))
 
 }
-
-##########################################
-
-
-##### TESTING CODE ########
-
-# results.p1.p2.equilibrium <- raw.results$results.p1.p2.equilibrium
-# results.p1.resident <- raw.results$results.p1.resident
-# results.p2.resident <- raw.results$results.p2.resident
-# 
-# p1.invader.decomp.compare <- decomp.results$p1.invader.decomp.compare
-# p2.invader.decomp.compare <- decomp.results$p2.invader.decomp.compare
-# 
-# parameter.list <- decomp.results$parameter.list
-# 
-# ###
-# 
-# ldgr.iden <- as.factor(c(1,0,0,0,0))
-# decomp <- c("LDGR", "e0", "eL", "eD", "eL*D")
-# temp1.p1 <- as.data.frame(p1.invader.decomp.compare)
-# temp1.p2 <- as.data.frame(p2.invader.decomp.compare)
-# 
-# temp2.p1 <- data.frame(t(temp1.p1), row.names = NULL)
-# temp2.p2 <- data.frame(t(temp1.p2), row.names = NULL)
-# 
-# temp.mean.p1 <- unlist(lapply(temp2.p1, mean))
-# temp.mean.p2 <- unlist(lapply(temp2.p2, mean))
-# 
-# neutral.specific.decomp.p1 <- data.frame("decomp" = decomp, "mean" = temp.mean.p1, ldgr.iden)
-# neutral.specific.decomp.p2 <- data.frame("decomp" = decomp, "mean" = temp.mean.p2, ldgr.iden)
-# 
-# neutral.specific.decomp.p1$decomp <- factor(neutral.specific.decomp.p1$decomp, levels = neutral.specific.decomp.p1$decomp)
-# neutral.specific.decomp.p2$decomp <- factor(neutral.specific.decomp.p2$decomp, levels = neutral.specific.decomp.p2$decomp)
-# 
-# 
-# ggplot(data = neutral.specific.decomp.p1, aes(x = decomp, y = mean, fill = ldgr.iden)) +
-#   geom_bar(stat = "identity", position = "dodge", colour = "black") +
-#   scale_fill_manual(values = c("gray80", "gray40")) +
-#   # scale_y_continuous(limits = c(-3,9), breaks = c(-3, 0, 3, 6, 9)) +
-#   theme_classic()
-# 
-# 
-# ggplot(data = neutral.specific.decomp.p2, aes(x = decomp, y = mean, fill = ldgr.iden)) +
-#   geom_bar(stat = "identity", position = "dodge", colour = "black") +
-#   scale_fill_manual(values = c("gray80", "gray40")) +
-#   # scale_y_continuous(limits = c(-3,9), breaks = c(-3, 0, 3, 6, 9)) +
-#   theme_classic()
